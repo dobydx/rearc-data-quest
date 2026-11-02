@@ -1,0 +1,11 @@
+resources:
+  dashboards:
+    data_quest:
+      display_name: Data Quest
+      # Built from src/sql/dashboard/*.sql (tests/unit/test_bi.py keeps them equal).
+      file_path: ../src/dashboards/data_quest.lvdash.json
+      warehouse_id: ${var.warehouse_id}
+      # Viewers run the queries with their own rights, not the owner's.
+      embed_credentials: false
+      # Queries use two-part names (quest_gold.x); this sets the catalog they resolve in.
+      dataset_catalog: ${var.catalog}

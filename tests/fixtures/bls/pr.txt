@@ -1,0 +1,20 @@
+                Major Sector Productivity and Costs (PR)
+                                    pr.txt
+
+
+Section Listing
+
+1. Survey Definition
+2. FTP files listed in the survey directory.
+3. Time series, series file, data file, & mapping file definitions and relationships
+4. Series file format and field definitions
+5. Data file format and field definitions
+6. Mapping file formats and field definitions
+7. Data Element Dictionary
+================================================================================
+Section 1
+================================================================================
+
+The following is a definition of:  MAJOR SECTOR PRODUCTIVITY AND COSTS (PR) 
+
+Survey Description:  Productivity and costs measures are published for six

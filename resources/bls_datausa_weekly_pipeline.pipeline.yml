@@ -1,0 +1,37 @@
+resources:
+  pipelines:
+    bls_datausa_weekly_pipeline:
+      name: bls_datausa_weekly_pipeline
+      catalog: ${var.catalog}
+      schema: quest_silver
+      serverless: true
+      continuous: false  # triggered: the job's pipeline task starts each update
+      channel: CURRENT
+      # The root folder is on sys.path, which is how the pipeline imports quest; the editable
+      # install alone was not importable on serverless (its .pth is never processed).
+      root_path: ../src
+      libraries:
+        - glob:
+            include: ../src/pipeline/transformations/**
+      environment:
+        # Installs quest's third-party dependencies (structlog, pyyaml, ...).
+        dependencies:
+          - --editable ${workspace.file_path}
+      configuration:
+        quest.catalog: ${var.catalog}
+        quest.landing_root: ${var.landing_root}
+        quest.code_version: ${var.code_version}
+        quest.nation_id: "01000US"
+        spark.sql.ansi.enabled: "true"
+        spark.sql.session.timeZone: UTC
+      event_log:
+        catalog: ${var.catalog}
+        schema: quest_ops
+        name: pipeline_event_log
+      notifications:
+        - email_recipients:
+            - ${var.notification_email}
+          alerts:
+            - on-update-failure
+            - on-update-fatal-failure
+            - on-flow-failure

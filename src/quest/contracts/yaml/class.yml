@@ -1,0 +1,36 @@
+role: class
+source: bls_pr
+file_pattern: '^pr\.class$'
+landing_glob: pr.class
+fmt: tsv
+bronze_table: bls_pr_class
+silver_table: bls_pr_class
+grain: One row per class code in the current pr.class.
+key: [class_code]
+label_column: class_text
+columns:
+  - name: class_code
+    source_aliases: [class_code]
+    silver_type: STRING
+    nullable: false
+    description: Worker class code.
+  - name: class_text
+    source_aliases: [class_text]
+    silver_type: STRING
+    nullable: false
+    description: Worker class name.
+  - name: display_level
+    source_aliases: [display_level]
+    silver_type: STRING
+    nullable: true
+    description: BLS display indent level, kept as published.
+  - name: selectable
+    source_aliases: [selectable]
+    silver_type: STRING
+    nullable: true
+    description: T or F as published by BLS.
+  - name: sort_sequence
+    source_aliases: [sort_sequence]
+    silver_type: STRING
+    nullable: true
+    description: BLS display order, kept as published.

@@ -1,0 +1,24 @@
+role: seasonal
+source: bls_pr
+file_pattern: '^pr\.seasonal$'
+landing_glob: pr.seasonal
+fmt: tsv
+bronze_table: bls_pr_seasonal
+silver_table: bls_pr_seasonal
+grain: One row per seasonal code in the current pr.seasonal.
+key: [seasonal_code]
+label_column: seasonal_text
+# BLS publishes "Seasonal Adjusted" (sic); silver keeps it in seasonal_text_source.
+label_canonical:
+  Seasonal Adjusted: Seasonally Adjusted
+columns:
+  - name: seasonal_code
+    source_aliases: [seasonal_code]
+    silver_type: STRING
+    nullable: false
+    description: S seasonally adjusted, U not adjusted.
+  - name: seasonal_text
+    source_aliases: [seasonal_text]
+    silver_type: STRING
+    nullable: false
+    description: Seasonal adjustment name.

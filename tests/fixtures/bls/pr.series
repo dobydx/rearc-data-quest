@@ -1,0 +1,7 @@
+series_id        	sector_code	class_code	measure_code	duration_code	seasonal	base_year	footnote_codes	begin_year	begin_period	end_year	end_period
+PRS30006013      	3000	6	01	3	S	2017		1987	Q01	2026	Q02
+PRS30006032      	3000	6	03	2	S	-		1987	Q02	2026	Q02
+PRS30006081      	3000	6	08	1	S	-		1988	Q05	2022	Q05
+PRS32006212      	3200	6	21	2	S	-		1987	Q02	2026	Q02
+PRS84006021      	8400	6	02	1	S	-		1948	Q01	2026	Q02
+PRS84006102      	8400	6	10	2	S	-		1947	Q02	2026	Q02

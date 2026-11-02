@@ -1,0 +1,2 @@
+# Fixtures are real upstream bytes (CRLF, padding, trailing blank lines); never normalize them.
+tests/fixtures/** -text

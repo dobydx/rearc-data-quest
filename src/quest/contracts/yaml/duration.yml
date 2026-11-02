@@ -1,0 +1,36 @@
+role: duration
+source: bls_pr
+file_pattern: '^pr\.duration$'
+landing_glob: pr.duration
+fmt: tsv
+bronze_table: bls_pr_duration
+silver_table: bls_pr_duration
+grain: One row per duration code in the current pr.duration.
+key: [duration_code]
+label_column: duration_text
+columns:
+  - name: duration_code
+    source_aliases: [duration_code]
+    silver_type: STRING
+    nullable: false
+    description: Duration code; it decides the unit of the series.
+  - name: duration_text
+    source_aliases: [duration_text]
+    silver_type: STRING
+    nullable: false
+    description: Duration name, including the index base year.
+  - name: display_level
+    source_aliases: [display_level]
+    silver_type: STRING
+    nullable: true
+    description: BLS display indent level, kept as published.
+  - name: selectable
+    source_aliases: [selectable]
+    silver_type: STRING
+    nullable: true
+    description: T or F as published by BLS.
+  - name: sort_sequence
+    source_aliases: [sort_sequence]
+    silver_type: STRING
+    nullable: true
+    description: BLS display order, kept as published.

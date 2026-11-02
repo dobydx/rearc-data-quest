@@ -1,0 +1,9 @@
+# Free-text files: landed raw for reference, never read into tables.
+role: doc
+source: bls_pr
+file_pattern: '^pr\.(txt|contacts)$'
+landing_glob: pr.{txt,contacts}
+fmt: text
+bronze_table: null
+silver_table: null
+grain: Free text, not tabular.

@@ -1,0 +1,26 @@
+role: period
+source: bls_pr
+file_pattern: '^pr\.period$'
+landing_glob: pr.period
+fmt: tsv
+bronze_table: bls_pr_period
+silver_table: bls_pr_period
+grain: One row per period code in the current pr.period.
+key: [period]
+label_column: period_name
+columns:
+  - name: period
+    source_aliases: [period]
+    silver_type: STRING
+    nullable: false
+    description: Q01 to Q04 for a quarter, Q05 for the BLS annual value (period name Annual Average).
+  - name: period_abbr
+    source_aliases: [period_abbr]
+    silver_type: STRING
+    nullable: false
+    description: Short period name, QTR1 to QTR4 or AN AV.
+  - name: period_name
+    source_aliases: [period_name]
+    silver_type: STRING
+    nullable: false
+    description: Period name, for example 1st Quarter or Annual Average.

@@ -1,0 +1,36 @@
+role: measure
+source: bls_pr
+file_pattern: '^pr\.measure$'
+landing_glob: pr.measure
+fmt: tsv
+bronze_table: bls_pr_measure
+silver_table: bls_pr_measure
+grain: One row per measure code in the current pr.measure.
+key: [measure_code]
+label_column: measure_text
+columns:
+  - name: measure_code
+    source_aliases: [measure_code]
+    silver_type: STRING
+    nullable: false
+    description: Two-digit measure code with its leading zero.
+  - name: measure_text
+    source_aliases: [measure_text]
+    silver_type: STRING
+    nullable: false
+    description: Measure name.
+  - name: display_level
+    source_aliases: [display_level]
+    silver_type: STRING
+    nullable: true
+    description: BLS display indent level, kept as published.
+  - name: selectable
+    source_aliases: [selectable]
+    silver_type: STRING
+    nullable: true
+    description: T or F as published by BLS.
+  - name: sort_sequence
+    source_aliases: [sort_sequence]
+    silver_type: STRING
+    nullable: true
+    description: BLS display order, kept as published.

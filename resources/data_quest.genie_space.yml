@@ -1,0 +1,8 @@
+resources:
+  genie_spaces:
+    data_quest_genie:
+      title: Data Quest
+      description: Ask about US population and BLS productivity in plain English.
+      # Built from src/genie/*.md and trusted_sql/ (tests/unit/test_bi.py keeps them equal).
+      file_path: ../src/genie/data_quest.geniespace.json
+      warehouse_id: ${var.warehouse_id}

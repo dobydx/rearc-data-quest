@@ -1,0 +1,36 @@
+role: sector
+source: bls_pr
+file_pattern: '^pr\.sector$'
+landing_glob: pr.sector
+fmt: tsv
+bronze_table: bls_pr_sector
+silver_table: bls_pr_sector
+grain: One row per sector code in the current pr.sector.
+key: [sector_code]
+label_column: sector_name
+columns:
+  - name: sector_code
+    source_aliases: [sector_code]
+    silver_type: STRING
+    nullable: false
+    description: Four-digit sector code.
+  - name: sector_name
+    source_aliases: [sector_name]
+    silver_type: STRING
+    nullable: false
+    description: Sector name.
+  - name: display_level
+    source_aliases: [display_level]
+    silver_type: STRING
+    nullable: true
+    description: BLS display indent level, kept as published.
+  - name: selectable
+    source_aliases: [selectable]
+    silver_type: STRING
+    nullable: true
+    description: T or F as published by BLS.
+  - name: sort_sequence
+    source_aliases: [sort_sequence]
+    silver_type: STRING
+    nullable: true
+    description: BLS display order, kept as published.

@@ -1,0 +1,84 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "quest"
+dynamic = ["version"]
+description = "Rearc data quest pipeline on Databricks"
+requires-python = ">=3.12,<3.13"
+# Compatible-release bounds around the versions in uv.lock: the wheel installs on serverless
+# without the lock, so these keep a new major release from arriving unannounced.
+dependencies = [
+    "httpx~=0.28",
+    "tenacity~=9.2",
+    "structlog~=26.1",
+    "pyyaml~=6.0",
+]
+
+[project.scripts]
+# For local runs only; the job runs ingest through src/notebooks/ingest.py (task values).
+quest-ingest = "quest.ingest.main:main"
+quest-validate = "quest.validate.main:main"
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "respx",
+    "ruff",
+    "mypy",
+    "types-PyYAML",
+    "pre-commit",
+]
+spark = [
+    "pyspark==4.3.0",
+]
+
+[tool.hatch.version]
+source = "vcs"
+# Version comes from git so each commit builds a new wheel and serverless cannot reuse a cached one.
+fallback-version = "0.0.0"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/quest"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "N", "D", "S", "BLE", "PTH", "RUF"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.pep8-naming]
+# `from pyspark.sql import functions as F` is the PySpark convention.
+extend-ignore-names = ["F"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "S101"]
+# Only module-constant table names are interpolated; every value is a :named parameter marker.
+"src/quest/validate/checks.py" = ["S608"]
+
+[tool.mypy]
+strict = true
+files = ["src"]
+# Pipeline sources use Databricks-only pyspark.pipelines APIs (dp.expect_*, private=) that the
+# open-source pyspark stubs lack; ruff still lints them and all their logic is typed in quest.
+# Notebooks import databricks.sdk.runtime, which only exists on Databricks.
+exclude = ["^src/pipeline/", "^src/notebooks/"]
+python_version = "3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--strict-markers"]
+markers = [
+    "spark: tests that need a Spark session (local JVM, or serverless with QUEST_SPARK=connect)",
+    "connect_safe: DataFrame-only Spark tests that also run on serverless via databricks-connect",
+]
+
+[tool.coverage.run]
+source = ["src/quest"]

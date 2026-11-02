@@ -1,0 +1,84 @@
+resources:
+  jobs:
+    bls_datausa_weekly_ingest:
+      name: bls_datausa_weekly_ingest
+      # Ingest is the single writer of quest_ops. Set explicitly: dev mode only raises an unset value.
+      max_concurrent_runs: 1
+      timeout_seconds: 7200
+      queue:
+        enabled: true
+      schedule:  # dev mode deploys it paused
+        quartz_cron_expression: 0 0 15 ? * MON
+        timezone_id: UTC
+      email_notifications:
+        on_failure:
+          - ${var.notification_email}
+      parameters:
+        - name: force_pipeline
+          default: "false"
+        - name: code_version
+          default: ${var.code_version}
+      environments:
+        - environment_key: quest
+          spec:
+            environment_version: "6"
+            dependencies:
+              - ../dist/*.whl
+      tasks:
+        # A notebook, not a wheel task: the docs allow dbutils.jobs.taskValues.set only in
+        # Python notebooks, and the gate and validate read ingest's task values.
+        - task_key: ingest
+          environment_key: quest
+          notebook_task:
+            notebook_path: ../src/notebooks/ingest.py
+            base_parameters:
+              catalog: ${var.catalog}
+              landing_root: ${var.landing_root}
+              run_id: "{{job.run_id}}"
+              job_id: "{{job.id}}"
+              trigger: "{{job.trigger.type}}"
+          max_retries: 0
+          # Without this, serverless retries a failed task on its own despite max_retries 0.
+          disable_auto_optimization: true
+          timeout_seconds: 1800
+
+        - task_key: run_pipeline_gate
+          depends_on:
+            - task_key: ingest
+          condition_task:
+            left: "{{tasks.ingest.values.run_pipeline}}"
+            op: EQUAL_TO
+            right: "true"
+
+        - task_key: pipeline
+          depends_on:
+            - task_key: run_pipeline_gate
+              outcome: "true"
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.bls_datausa_weekly_pipeline.id}
+            full_refresh: false
+          timeout_seconds: 3600
+
+        # Depends on ingest too: a task whose only dependency is excluded is excluded itself.
+        - task_key: validate
+          depends_on:
+            - task_key: ingest
+            - task_key: pipeline
+          run_if: NONE_FAILED
+          environment_key: quest
+          python_wheel_task:
+            package_name: quest
+            entry_point: quest-validate
+            # Positional, so job parameters are not pushed down as extra keyword arguments.
+            parameters:
+              - --catalog
+              - ${var.catalog}
+              - --ingest-pointers-flipped
+              - "{{tasks.ingest.values.pointers_flipped}}"
+              - --ingest-code-changed
+              - "{{tasks.ingest.values.code_changed}}"
+              - --run-id
+              - "{{job.run_id}}"
+          max_retries: 0
+          disable_auto_optimization: true
+          timeout_seconds: 1800

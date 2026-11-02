@@ -1,0 +1,56 @@
+resources:
+  alerts:
+    quest_dq_alert:
+      display_name: quest_dq_alert
+      custom_summary: "Data Quest: {{ALERT_STATUS}}, issues = {{QUERY_RESULT_VALUE}}"
+      custom_description: >-
+        Warn, fail or error checks in the latest validate run, or pr.data.1.AllData more than
+        100 days old. See the Data quality page of the Data Quest dashboard.
+      warehouse_id: ${var.warehouse_id}
+      # A copy of src/sql/alert_dq.sql (tests/unit/test_bi.py keeps them equal). Alerts have no
+      # default-catalog setting, so this copy names the catalog through the bundle variable.
+      query_text: |
+        -- quest_dq_alert: one row; the alert fires when issues > 0.
+        -- Counts the warn, fail and error checks of the latest validate run, plus 1 when the served
+        -- pr.data.1.AllData is more than 100 days past its Last-Modified (same bound as STALE_SOURCE)
+        -- or has no state row or Last-Modified at all. Freshness is computed live, from file_state.
+        WITH latest AS (
+          SELECT max_by(run_id, checked_at) AS run_id FROM ${var.catalog}.quest_ops.dq_checks
+        ),
+        problems AS (
+          SELECT count(*) AS n
+          FROM ${var.catalog}.quest_ops.dq_checks AS c
+          JOIN latest AS l
+            ON l.run_id = c.run_id
+          WHERE c.status IN ('warn', 'fail', 'error')
+        ),
+        freshness AS (
+          SELECT max(datediff(current_date(), http_last_modified)) AS age_days
+          FROM ${var.catalog}.quest_ops.file_state
+          WHERE file_name = 'pr.data.1.AllData'
+        )
+        SELECT
+          p.n + CASE WHEN f.age_days > 100 OR f.age_days IS NULL THEN 1 ELSE 0 END AS issues,
+          p.n AS problem_checks,
+          f.age_days AS alldata_age_days
+        FROM problems AS p
+        CROSS JOIN freshness AS f
+      evaluation:
+        source:
+          name: issues
+          display: issues
+          aggregation: MAX
+        comparison_operator: GREATER_THAN
+        threshold:
+          value:
+            double_value: 0
+        notification:
+          notify_on_ok: true
+          subscriptions:
+            - user_email: ${var.notification_email}
+      # Deployed paused by decision: in dev nothing runs on a schedule. Evaluate it by hand from
+      # the alert page, or set UNPAUSED here and redeploy (a prod target would unpause it).
+      schedule:
+        quartz_cron_schedule: "0 0 16 * * ?"
+        timezone_id: UTC
+        pause_status: PAUSED

@@ -1,0 +1,30 @@
+# private prep material (the quest asks not to share it)
+docs/
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+dist/
+*.egg-info/
+
+# databricks
+.databricks/
+.bundle/
+
+# local
+.DS_Store
+.env
+spark-warehouse/
+metastore_db/
+derby.log
+.superpowers/
+
+# toolchain
+data-quest-uv-venv/
+data-quest-connect-venv/
+.coverage
+htmlcov/
+.mypy_cache/

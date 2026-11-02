@@ -1,0 +1,58 @@
+# Lint, type-check and test pushes to main and every pull request; deploy the dev bundle from main.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request: {}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # hatch-vcs derives the package version from git history
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      # setup-uv and setup-cli publish no floating major tag, so they are pinned to a release.
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: true
+      # The Makefile exports UV_PROJECT_ENVIRONMENT, so make targets reuse this venv.
+      - run: make install
+      - run: make lint typecheck
+      - run: make cov
+      - uses: databricks/setup-cli@v1.23.0
+      # Workspace credentials only on the steps that talk to Databricks. The token is a personal
+      # access token for this dev setup; production would use a service principal with OIDC.
+      - run: databricks bundle validate -t dev
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+
+  deploy:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # One deploy at a time; a newer push waits instead of cancelling a deploy halfway.
+    concurrency:
+      group: deploy-dev
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v10.3.3  # the bundle artifact runs `uv build --wheel`
+      - uses: databricks/setup-cli@v1.23.0
+      - run: databricks bundle deploy -t dev
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}

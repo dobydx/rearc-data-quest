@@ -1,0 +1,36 @@
+# pr.data.0.Current: recent years only. Lands in bronze for the subset check, never feeds silver.
+role: observations_current
+source: bls_pr
+file_pattern: '^pr\.data\.0\.Current$'
+landing_glob: pr.data.*
+fmt: tsv
+bronze_table: bls_pr_data
+silver_table: null
+grain: One row per series, year and period in the current pr.data.0.Current.
+key: [series_id, year, period]
+columns:
+  - name: series_id
+    source_aliases: [series_id]
+    silver_type: STRING
+    nullable: false
+    description: BLS series id, PR, seasonal code S or U, then 8 digits.
+  - name: year
+    source_aliases: [year]
+    silver_type: INT
+    nullable: false
+    description: Calendar year of the observation.
+  - name: period
+    source_aliases: [period]
+    silver_type: STRING
+    nullable: false
+    description: Q01 to Q04 for a quarter, Q05 for the BLS annual value (period name Annual Average).
+  - name: value
+    source_aliases: [value]
+    silver_type: DECIMAL(12,3)
+    nullable: false
+    description: Published value; its unit comes from the series duration.
+  - name: footnote_codes
+    source_aliases: [footnote_codes]
+    silver_type: ARRAY<STRING>
+    nullable: false
+    description: Footnote codes on the value, empty when none (R means revised).

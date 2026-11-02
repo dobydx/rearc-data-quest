@@ -1,0 +1,754 @@
+# Data-quality rules for every table. Row and pipeline predicates are Spark SQL over
+# trimmed STRING columns plus helper columns (_series_exists, _key_count, ...) and are
+# TRUE when the row passes; a NULL result counts as a failure. Validate rules have no
+# predicate: each code maps to a check function in quest.validate.checks.
+rules:
+  # bls_pr_observations: row rules (quarantine unless noted)
+  - code: NULL_KEY
+    table: bls_pr_observations
+    severity: quarantine
+    stage: row
+    predicate: >-
+      series_id <> '' AND year <> '' AND period <> ''
+    description: series_id, year and period are all present.
+  - code: BAD_SERIES_ID
+    table: bls_pr_observations
+    severity: quarantine
+    stage: row
+    predicate: >-
+      series_id RLIKE '^PR[SU][0-9]{8}$'
+    description: series_id is PR, S or U, then 8 digits.
+  - code: BAD_YEAR
+    table: bls_pr_observations
+    severity: quarantine
+    stage: row
+    predicate: >-
+      year RLIKE '^[0-9]{4}$' AND try_cast(year AS INT) BETWEEN 1947 AND _max_year
+    description: Year is 4 digits between 1947 and the year of the file version's Last-Modified.
+  - code: BAD_PERIOD
+    table: bls_pr_observations
+    severity: quarantine
+    stage: row
+    predicate: >-
+      period IN ('Q01', 'Q02', 'Q03', 'Q04', 'Q05')
+    description: Period is Q01 to Q05.
+  - code: UNKNOWN_PERIOD
+    table: bls_pr_observations
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _period_exists
+    description: Period exists in silver bls_pr_period.
+  - code: BAD_VALUE
+    table: bls_pr_observations
+    severity: quarantine
+    stage: row
+    predicate: >-
+      value RLIKE '^-?[0-9]{1,9}(\.[0-9]{1,3})?$'
+    description: Value has up to 9 integer and 3 decimal digits.
+  - code: ORPHAN_SERIES
+    table: bls_pr_observations
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _series_exists
+    description: series_id exists in silver bls_pr_series, so a quarantined series cascades.
+  - code: DUPLICATE_KEY
+    table: bls_pr_observations
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _key_count = 1
+    description: The key appears once in the file; every copy of a duplicate is quarantined.
+  # A value that does not parse passes the next two rules; BAD_VALUE already reports it.
+  - code: INDEX_NOT_POSITIVE
+    table: bls_pr_observations
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _unit_of_measure IS DISTINCT FROM 'INDEX' OR try_cast(value AS DECIMAL(12,3)) IS NULL
+      OR try_cast(value AS DECIMAL(12,3)) > 0
+    description: An index value is above zero.
+  - code: PCT_CHANGE_BELOW_MINUS_100
+    table: bls_pr_observations
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _unit_of_measure IS DISTINCT FROM 'PERCENT_CHANGE'
+      OR try_cast(value AS DECIMAL(12,3)) IS NULL OR try_cast(value AS DECIMAL(12,3)) > -100
+    description: A percent change is above -100.
+  - code: UNKNOWN_FOOTNOTE
+    table: bls_pr_observations
+    severity: warn
+    stage: row
+    predicate: >-
+      _footnotes_known
+    description: Every footnote code exists in bls_pr_footnote. Warn only; the row stays in silver.
+
+  # bls_pr_observations: validate checks
+  - code: STALE_SOURCE
+    table: bls_pr_observations
+    severity: warn
+    stage: validate
+    description: AllData Last-Modified is no older than 100 days.
+  - code: MIXED_RELEASE
+    table: bls_pr_observations
+    severity: warn
+    stage: validate
+    description: pr.series and AllData share a Last-Modified date.
+  - code: ROW_COUNT_SHRINK
+    table: bls_pr_observations
+    severity: fail
+    stage: validate
+    description: Warn if AllData shrank over 1% against the previous version, fail over 10%.
+  - code: OUTSIDE_SERIES_RANGE
+    table: bls_pr_observations
+    severity: warn
+    stage: validate
+    description: Each observation lies within its series begin and end.
+  - code: QUARTER_ON_ANNUAL_SERIES
+    table: bls_pr_observations
+    severity: warn
+    stage: validate
+    description: Annual-only series have only Q05 rows.
+  - code: Q05_COMPLETENESS
+    table: bls_pr_observations
+    severity: warn
+    stage: validate
+    description: A quarterly series-year has Q05 exactly when it has 4 quarters.
+  - code: INTERNAL_QUARTER_GAP
+    table: bls_pr_observations
+    severity: warn
+    stage: validate
+    description: No quarter is missing between a series' first and last.
+  - code: SERIES_RANGE_CONSISTENCY
+    table: bls_pr_observations
+    severity: warn
+    stage: validate
+    description: Series begin and end equal the observed first and last.
+  - code: SERIES_WITHOUT_DATA
+    table: bls_pr_observations
+    severity: warn
+    stage: validate
+    description: Every series has at least one observation.
+  - code: CURRENT_NOT_SUBSET
+    table: bls_pr_observations
+    severity: warn
+    stage: validate
+    description: Every pr.data.0.Current key exists in AllData.
+  - code: CURRENT_VALUE_MISMATCH
+    table: bls_pr_observations
+    severity: warn
+    stage: validate
+    description: Current and AllData agree on every shared key.
+  - code: RECONCILE_BRONZE
+    table: bls_pr_observations
+    severity: fail
+    stage: validate
+    description: Bronze lines of the current version equal silver plus quarantine.
+  - code: DUPLICATE_KEY
+    table: bls_pr_observations
+    severity: fail
+    stage: validate
+    description: No row was quarantined as a duplicate key.
+  - code: QUARANTINE_RATE
+    table: bls_pr_observations
+    severity: fail
+    stage: validate
+    description: Warn on any quarantined row, fail above 1% of the table.
+
+  # bls_pr_series: row rules
+  - code: NULL_KEY
+    table: bls_pr_series
+    severity: quarantine
+    stage: row
+    predicate: >-
+      series_id <> ''
+    description: series_id is present.
+  - code: BAD_SERIES_ID
+    table: bls_pr_series
+    severity: quarantine
+    stage: row
+    predicate: >-
+      series_id RLIKE '^PR[SU][0-9]{8}$'
+    description: series_id is PR, S or U, then 8 digits.
+  - code: DUPLICATE_KEY
+    table: bls_pr_series
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _key_count = 1
+    description: series_id appears once; every copy of a duplicate is quarantined.
+  - code: UNKNOWN_SECTOR
+    table: bls_pr_series
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _sector_exists
+    description: sector_code exists in silver bls_pr_sector.
+  - code: UNKNOWN_CLASS
+    table: bls_pr_series
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _class_exists
+    description: class_code exists in silver bls_pr_class.
+  - code: UNKNOWN_MEASURE
+    table: bls_pr_series
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _measure_exists
+    description: measure_code exists in silver bls_pr_measure.
+  - code: UNKNOWN_SEASONAL
+    table: bls_pr_series
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _seasonal_exists
+    description: seasonal_code exists in silver bls_pr_seasonal.
+  - code: UNMAPPED_DURATION
+    table: bls_pr_series
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _duration_exists AND _unit_of_measure IS NOT NULL
+    description: duration_code exists in bls_pr_duration and in the contract unit mapping.
+  - code: SERIES_ID_CODE_MISMATCH
+    table: bls_pr_series
+    severity: quarantine
+    stage: row
+    predicate: >-
+      substr(series_id, 3, 1) = seasonal_code AND substr(series_id, 4, 4) = sector_code
+      AND substr(series_id, 8, 1) = class_code AND substr(series_id, 9, 2) = measure_code
+      AND substr(series_id, 11, 1) = duration_code
+    description: The codes embedded in series_id equal the series attribute columns.
+  - code: BAD_BASE_YEAR
+    table: bls_pr_series
+    severity: quarantine
+    stage: row
+    predicate: >-
+      base_year RLIKE '^(-|[0-9]{4})$'
+    description: base_year is '-' or 4 digits.
+  - code: BAD_BEGIN_END
+    table: bls_pr_series
+    severity: quarantine
+    stage: row
+    predicate: >-
+      begin_year RLIKE '^[0-9]{4}$' AND end_year RLIKE '^[0-9]{4}$'
+      AND begin_period IN ('Q01', 'Q02', 'Q03', 'Q04', 'Q05')
+      AND end_period IN ('Q01', 'Q02', 'Q03', 'Q04', 'Q05')
+      AND concat(begin_year, begin_period) <= concat(end_year, end_period)
+    description: Begin and end are valid years and periods, and begin is not after end.
+
+  # bls_pr_series: validate checks
+  - code: BASE_YEAR_UNIT_MISMATCH
+    table: bls_pr_series
+    severity: warn
+    stage: validate
+    description: A series is an index exactly when it has a base year.
+  - code: BASE_YEAR_TEXT_MISMATCH
+    table: bls_pr_series
+    severity: warn
+    stage: validate
+    description: An index series' duration text names its base year.
+  - code: ANNUAL_FLAG_INCONSISTENT
+    table: bls_pr_series
+    severity: warn
+    stage: validate
+    description: begin_period is Q05 exactly when end_period is Q05.
+  - code: DUPLICATE_KEY
+    table: bls_pr_series
+    severity: fail
+    stage: validate
+    description: No row was quarantined as a duplicate key.
+  - code: QUARANTINE_RATE
+    table: bls_pr_series
+    severity: fail
+    stage: validate
+    description: Warn on any quarantined row, fail above 1% of the table.
+
+  # bls_pr_measure: lookup rules
+  - code: LOOKUP_NULL_CODE
+    table: bls_pr_measure
+    severity: quarantine
+    stage: row
+    predicate: >-
+      measure_code <> ''
+    description: measure_code is present.
+  - code: LOOKUP_DUPLICATE_CODE
+    table: bls_pr_measure
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _key_count = 1
+    description: measure_code appears once; every copy of a duplicate is quarantined.
+  - code: LOOKUP_BAD_CODE_FORMAT
+    table: bls_pr_measure
+    severity: quarantine
+    stage: row
+    predicate: >-
+      measure_code RLIKE '^[0-9]{2}$'
+    description: measure_code has the published code format.
+  - code: LOOKUP_NULL_TEXT
+    table: bls_pr_measure
+    severity: quarantine
+    stage: row
+    predicate: >-
+      measure_text <> ''
+    description: measure_text is present.
+  - code: LOOKUP_EMPTY
+    table: bls_pr_measure
+    severity: fail
+    stage: pipeline
+    predicate: >-
+      row_count > 0
+    description: The lookup has at least one valid row; an empty lookup fails the update.
+  - code: QUARANTINE_RATE
+    table: bls_pr_measure
+    severity: warn
+    stage: validate
+    description: Warn on any quarantined row; lookups are too small for a rate to mean anything.
+
+  # bls_pr_sector: lookup rules
+  - code: LOOKUP_NULL_CODE
+    table: bls_pr_sector
+    severity: quarantine
+    stage: row
+    predicate: >-
+      sector_code <> ''
+    description: sector_code is present.
+  - code: LOOKUP_DUPLICATE_CODE
+    table: bls_pr_sector
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _key_count = 1
+    description: sector_code appears once; every copy of a duplicate is quarantined.
+  - code: LOOKUP_BAD_CODE_FORMAT
+    table: bls_pr_sector
+    severity: quarantine
+    stage: row
+    predicate: >-
+      sector_code RLIKE '^[0-9]{4}$'
+    description: sector_code has the published code format.
+  - code: LOOKUP_NULL_TEXT
+    table: bls_pr_sector
+    severity: quarantine
+    stage: row
+    predicate: >-
+      sector_name <> ''
+    description: sector_name is present.
+  - code: LOOKUP_EMPTY
+    table: bls_pr_sector
+    severity: fail
+    stage: pipeline
+    predicate: >-
+      row_count > 0
+    description: The lookup has at least one valid row; an empty lookup fails the update.
+  - code: QUARANTINE_RATE
+    table: bls_pr_sector
+    severity: warn
+    stage: validate
+    description: Warn on any quarantined row; lookups are too small for a rate to mean anything.
+
+  # bls_pr_class: lookup rules
+  - code: LOOKUP_NULL_CODE
+    table: bls_pr_class
+    severity: quarantine
+    stage: row
+    predicate: >-
+      class_code <> ''
+    description: class_code is present.
+  - code: LOOKUP_DUPLICATE_CODE
+    table: bls_pr_class
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _key_count = 1
+    description: class_code appears once; every copy of a duplicate is quarantined.
+  - code: LOOKUP_BAD_CODE_FORMAT
+    table: bls_pr_class
+    severity: quarantine
+    stage: row
+    predicate: >-
+      class_code RLIKE '^[0-9]$'
+    description: class_code has the published code format.
+  - code: LOOKUP_NULL_TEXT
+    table: bls_pr_class
+    severity: quarantine
+    stage: row
+    predicate: >-
+      class_text <> ''
+    description: class_text is present.
+  - code: LOOKUP_EMPTY
+    table: bls_pr_class
+    severity: fail
+    stage: pipeline
+    predicate: >-
+      row_count > 0
+    description: The lookup has at least one valid row; an empty lookup fails the update.
+  - code: QUARANTINE_RATE
+    table: bls_pr_class
+    severity: warn
+    stage: validate
+    description: Warn on any quarantined row; lookups are too small for a rate to mean anything.
+
+  # bls_pr_duration: lookup rules
+  - code: LOOKUP_NULL_CODE
+    table: bls_pr_duration
+    severity: quarantine
+    stage: row
+    predicate: >-
+      duration_code <> ''
+    description: duration_code is present.
+  - code: LOOKUP_DUPLICATE_CODE
+    table: bls_pr_duration
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _key_count = 1
+    description: duration_code appears once; every copy of a duplicate is quarantined.
+  - code: LOOKUP_BAD_CODE_FORMAT
+    table: bls_pr_duration
+    severity: quarantine
+    stage: row
+    predicate: >-
+      duration_code IN ('1', '2', '3')
+    description: duration_code has the published code format.
+  - code: LOOKUP_NULL_TEXT
+    table: bls_pr_duration
+    severity: quarantine
+    stage: row
+    predicate: >-
+      duration_text <> ''
+    description: duration_text is present.
+  - code: LOOKUP_EMPTY
+    table: bls_pr_duration
+    severity: fail
+    stage: pipeline
+    predicate: >-
+      row_count > 0
+    description: The lookup has at least one valid row; an empty lookup fails the update.
+  - code: QUARANTINE_RATE
+    table: bls_pr_duration
+    severity: warn
+    stage: validate
+    description: Warn on any quarantined row; lookups are too small for a rate to mean anything.
+
+  # bls_pr_seasonal: lookup rules
+  - code: LOOKUP_NULL_CODE
+    table: bls_pr_seasonal
+    severity: quarantine
+    stage: row
+    predicate: >-
+      seasonal_code <> ''
+    description: seasonal_code is present.
+  - code: LOOKUP_DUPLICATE_CODE
+    table: bls_pr_seasonal
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _key_count = 1
+    description: seasonal_code appears once; every copy of a duplicate is quarantined.
+  - code: LOOKUP_BAD_CODE_FORMAT
+    table: bls_pr_seasonal
+    severity: quarantine
+    stage: row
+    predicate: >-
+      seasonal_code IN ('S', 'U')
+    description: seasonal_code has the published code format.
+  - code: LOOKUP_NULL_TEXT
+    table: bls_pr_seasonal
+    severity: quarantine
+    stage: row
+    predicate: >-
+      seasonal_text <> ''
+    description: seasonal_text is present.
+  - code: LOOKUP_EMPTY
+    table: bls_pr_seasonal
+    severity: fail
+    stage: pipeline
+    predicate: >-
+      row_count > 0
+    description: The lookup has at least one valid row; an empty lookup fails the update.
+  - code: QUARANTINE_RATE
+    table: bls_pr_seasonal
+    severity: warn
+    stage: validate
+    description: Warn on any quarantined row; lookups are too small for a rate to mean anything.
+
+  # bls_pr_period: lookup rules
+  - code: LOOKUP_NULL_CODE
+    table: bls_pr_period
+    severity: quarantine
+    stage: row
+    predicate: >-
+      period <> ''
+    description: period is present.
+  - code: LOOKUP_DUPLICATE_CODE
+    table: bls_pr_period
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _key_count = 1
+    description: period appears once; every copy of a duplicate is quarantined.
+  - code: LOOKUP_BAD_CODE_FORMAT
+    table: bls_pr_period
+    severity: quarantine
+    stage: row
+    predicate: >-
+      period IN ('Q01', 'Q02', 'Q03', 'Q04', 'Q05')
+    description: period has the published code format.
+  - code: LOOKUP_NULL_TEXT
+    table: bls_pr_period
+    severity: quarantine
+    stage: row
+    predicate: >-
+      period_name <> ''
+    description: period_name is present.
+  - code: LOOKUP_EMPTY
+    table: bls_pr_period
+    severity: fail
+    stage: pipeline
+    predicate: >-
+      row_count > 0
+    description: The lookup has at least one valid row; an empty lookup fails the update.
+  - code: QUARANTINE_RATE
+    table: bls_pr_period
+    severity: warn
+    stage: validate
+    description: Warn on any quarantined row; lookups are too small for a rate to mean anything.
+
+  # bls_pr_footnote: lookup rules
+  - code: LOOKUP_NULL_CODE
+    table: bls_pr_footnote
+    severity: quarantine
+    stage: row
+    predicate: >-
+      footnote_code <> ''
+    description: footnote_code is present.
+  - code: LOOKUP_DUPLICATE_CODE
+    table: bls_pr_footnote
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _key_count = 1
+    description: footnote_code appears once; every copy of a duplicate is quarantined.
+  - code: LOOKUP_BAD_CODE_FORMAT
+    table: bls_pr_footnote
+    severity: quarantine
+    stage: row
+    predicate: >-
+      footnote_code RLIKE '^[A-Z]{1,2}$'
+    description: footnote_code has the published code format.
+  - code: LOOKUP_NULL_TEXT
+    table: bls_pr_footnote
+    severity: quarantine
+    stage: row
+    predicate: >-
+      footnote_text <> ''
+    description: footnote_text is present.
+  - code: LOOKUP_EMPTY
+    table: bls_pr_footnote
+    severity: fail
+    stage: pipeline
+    predicate: >-
+      row_count > 0
+    description: The lookup has at least one valid row; an empty lookup fails the update.
+  - code: QUARANTINE_RATE
+    table: bls_pr_footnote
+    severity: warn
+    stage: validate
+    description: Warn on any quarantined row; lookups are too small for a rate to mean anything.
+
+  # BLS tab-separated tables: a line with more or fewer fields than the contract (its raw text
+  # lands in _rescued_data, the CSV reader's corrupt-record column).
+  - code: RESCUED_DATA
+    table: bls_pr_observations
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _rescued_data IS NULL
+    description: The line parsed to exactly the contract's fields, so no raw text was kept in _rescued_data.
+  - code: RESCUED_DATA
+    table: bls_pr_series
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _rescued_data IS NULL
+    description: The line parsed to exactly the contract's fields, so no raw text was kept in _rescued_data.
+  - code: RESCUED_DATA
+    table: bls_pr_measure
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _rescued_data IS NULL
+    description: The line parsed to exactly the contract's fields, so no raw text was kept in _rescued_data.
+  - code: RESCUED_DATA
+    table: bls_pr_sector
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _rescued_data IS NULL
+    description: The line parsed to exactly the contract's fields, so no raw text was kept in _rescued_data.
+  - code: RESCUED_DATA
+    table: bls_pr_class
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _rescued_data IS NULL
+    description: The line parsed to exactly the contract's fields, so no raw text was kept in _rescued_data.
+  - code: RESCUED_DATA
+    table: bls_pr_duration
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _rescued_data IS NULL
+    description: The line parsed to exactly the contract's fields, so no raw text was kept in _rescued_data.
+  - code: RESCUED_DATA
+    table: bls_pr_seasonal
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _rescued_data IS NULL
+    description: The line parsed to exactly the contract's fields, so no raw text was kept in _rescued_data.
+  - code: RESCUED_DATA
+    table: bls_pr_period
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _rescued_data IS NULL
+    description: The line parsed to exactly the contract's fields, so no raw text was kept in _rescued_data.
+  - code: RESCUED_DATA
+    table: bls_pr_footnote
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _rescued_data IS NULL
+    description: The line parsed to exactly the contract's fields, so no raw text was kept in _rescued_data.
+
+  # datausa_population: row rules
+  - code: NULL_KEY
+    table: datausa_population
+    severity: quarantine
+    stage: row
+    predicate: >-
+      nation_id <> '' AND year <> ''
+    description: nation_id and year are present.
+  - code: BAD_NATION
+    table: datausa_population
+    severity: quarantine
+    stage: row
+    predicate: >-
+      nation_id = _expected_nation_id
+    description: nation_id is the configured nation.
+  - code: BAD_YEAR
+    table: datausa_population
+    severity: quarantine
+    stage: row
+    predicate: >-
+      year RLIKE '^[0-9]{4}$' AND try_cast(year AS INT) BETWEEN 1900 AND _max_year
+    description: Year is 4 digits between 1900 and the year the version was fetched.
+  - code: NON_NUMERIC_POPULATION
+    table: datausa_population
+    severity: quarantine
+    stage: row
+    # The Databricks JSON reader renders a JSON number as Java double text (3.16128839E8);
+    # open-source Spark keeps the source text (316128839.0). Both are valid.
+    predicate: >-
+      population RLIKE '^[0-9]+([.][0-9]+)?([eE][+]?[0-9]+)?$'
+    description: Population is a non-negative number, plain or in exponent form.
+  - code: NON_INTEGRAL_POPULATION
+    table: datausa_population
+    severity: quarantine
+    stage: row
+    # Scale 18 holds every fractional digit a double prints for a population-sized value, so
+    # the cast cannot round a fraction away first. silver.population casts through the same type.
+    predicate: >-
+      try_cast(population AS DECIMAL(38,18)) % 1 = 0
+    description: Population is a whole number (DataUSA sends a float such as 316128839.0).
+  - code: NON_POSITIVE_POPULATION
+    table: datausa_population
+    severity: quarantine
+    stage: row
+    predicate: >-
+      try_cast(population AS DECIMAL(15,1)) IS NULL
+      OR try_cast(population AS DECIMAL(15,1)) > 0
+    description: Population is above zero.
+  - code: DUPLICATE_KEY
+    table: datausa_population
+    severity: quarantine
+    stage: row
+    predicate: >-
+      _key_count = 1
+    description: nation_id and year appear once; every copy of a duplicate is quarantined.
+
+  # datausa_population: validate checks
+  - code: POP_YEARS_SHRANK
+    table: datausa_population
+    severity: warn
+    stage: validate
+    description: The current version has every year the previous one had.
+  - code: RECONCILE_BRONZE
+    table: datausa_population
+    severity: fail
+    stage: validate
+    description: Bronze rows of the current version equal silver plus quarantine and page.total.
+  - code: DUPLICATE_KEY
+    table: datausa_population
+    severity: fail
+    stage: validate
+    description: No row was quarantined as a duplicate key.
+  - code: QUARANTINE_RATE
+    table: datausa_population
+    severity: fail
+    stage: validate
+    description: Warn on any quarantined row, fail above 1% of the table.
+
+  # gold and ops: validate checks
+  - code: Q1_INCOMPLETE
+    table: population_stats_2013_2018
+    severity: warn
+    stage: validate
+    description: All 6 years 2013 to 2018 are present.
+  - code: PARITY_SQL_PYSPARK
+    table: population_stats_2013_2018
+    severity: fail
+    stage: validate
+    description: The PySpark twin equals the SQL table, DOUBLE columns within 1e-9 relative.
+  - code: PARITY_SQL_PYSPARK
+    table: series_best_year
+    severity: fail
+    stage: validate
+    description: The PySpark twin returns exactly the rows of the SQL table.
+  - code: PARITY_SQL_PYSPARK
+    table: prs30006032_q01_with_population
+    severity: fail
+    stage: validate
+    description: The PySpark twin returns exactly the rows of the SQL table.
+  - code: PARITY_SQL_PYSPARK
+    table: productivity_observations
+    severity: fail
+    stage: validate
+    description: The PySpark twin returns exactly the rows of the SQL table.
+  - code: GOLD_ROWCOUNT
+    table: series_best_year
+    severity: fail
+    stage: validate
+    description: One row per silver series.
+  - code: GOLD_ROWCOUNT
+    table: prs30006032_q01_with_population
+    severity: fail
+    stage: validate
+    description: One row per PRS30006032 Q01 observation.
+  - code: UNMODELLED_FILE
+    table: file_state
+    severity: warn
+    stage: validate
+    description: Every active file matches a contract role.
+  - code: NO_CHANGE_ON_RERUN
+    table: table_versions
+    severity: fail
+    stage: validate
+    description: When ingest landed nothing, no table version or checksum moved.

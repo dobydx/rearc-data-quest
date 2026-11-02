@@ -1,0 +1,44 @@
+# Declarative Automation Bundle (formerly Databricks Asset Bundles): the job and pipeline as code.
+# `databricks bundle deploy -t dev` builds the wheel, uploads the project folder (every file git
+# does not ignore) and updates the job, pipeline, dashboard, alert and Genie space.
+# The workspace host comes from the CLI profile locally and from DATABRICKS_HOST in CI.
+bundle:
+  name: rearc_data_quest
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: Unity Catalog catalog that holds every quest_* schema.
+    default: workspace
+  landing_root:
+    description: Volume path that ingest writes raw files to and bronze reads from.
+    default: /Volumes/workspace/quest_raw/landing
+  code_version:
+    description: >-
+      Deployed code version, set on the pipeline and the job alike; the pipeline gate reruns
+      the pipeline when gold was built by a different version.
+    default: git-${bundle.git.commit}
+  notification_email:
+    description: Who gets failure emails from the job and the pipeline, and the DQ alert.
+    default: ${workspace.current_user.userName}
+  warehouse_id:
+    description: SQL warehouse that runs the dashboard, the DQ alert and the Genie Agent.
+    lookup:
+      warehouse: Serverless Starter Warehouse
+
+artifacts:
+  quest_wheel:
+    type: whl
+    # hatch-vcs derives the version from git, so every commit uploads a new wheel and
+    # serverless never reuses a cached build of an older one. --clear empties dist/ first, so
+    # the job's ../dist/*.whl matches exactly this build.
+    build: uv build --wheel --clear
+    path: .
+
+targets:
+  dev:
+    # Prefixes names with "[dev <user>]", pauses schedules and sets the pipeline to development.
+    mode: development
+    default: true

@@ -1,0 +1,21 @@
+role: footnote
+source: bls_pr
+file_pattern: '^pr\.footnote$'
+landing_glob: pr.footnote
+fmt: tsv
+bronze_table: bls_pr_footnote
+silver_table: bls_pr_footnote
+grain: One row per footnote code in the current pr.footnote.
+key: [footnote_code]
+label_column: footnote_text
+columns:
+  - name: footnote_code
+    source_aliases: [footnote_code]
+    silver_type: STRING
+    nullable: false
+    description: Footnote code, for example R.
+  - name: footnote_text
+    source_aliases: [footnote_text]
+    silver_type: STRING
+    nullable: false
+    description: Footnote meaning, for example revised.

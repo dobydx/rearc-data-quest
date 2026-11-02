@@ -1,0 +1,75 @@
+role: series
+source: bls_pr
+file_pattern: '^pr\.series$'
+landing_glob: pr.series
+fmt: tsv
+bronze_table: bls_pr_series
+silver_table: bls_pr_series
+grain: One row per series id in the current pr.series.
+key: [series_id]
+# Closed mapping: a duration code outside it is quarantined as UNMAPPED_DURATION.
+unit_by_duration:
+  "1": {unit_of_measure: PERCENT_CHANGE, change_basis: SAME_QUARTER_PRIOR_YEAR, value_decimals: 1}
+  "2": {unit_of_measure: PERCENT_CHANGE, change_basis: PREVIOUS_QUARTER, value_decimals: 1}
+  "3": {unit_of_measure: INDEX, change_basis: null, value_decimals: 3}
+columns:
+  - name: series_id
+    source_aliases: [series_id]
+    silver_type: STRING
+    nullable: false
+    description: BLS series id, PR, seasonal code S or U, then 8 digits.
+  - name: sector_code
+    source_aliases: [sector_code]
+    silver_type: STRING
+    nullable: false
+    description: Four-digit sector code, see bls_pr_sector.
+  - name: class_code
+    source_aliases: [class_code]
+    silver_type: STRING
+    nullable: false
+    description: Worker class code, see bls_pr_class.
+  - name: measure_code
+    source_aliases: [measure_code]
+    silver_type: STRING
+    nullable: false
+    description: Two-digit measure code with its leading zero, see bls_pr_measure.
+  - name: duration_code
+    source_aliases: [duration_code]
+    silver_type: STRING
+    nullable: false
+    description: Duration code that decides the unit, see bls_pr_duration.
+  - name: seasonal_code
+    source_aliases: [seasonal]
+    silver_type: STRING
+    nullable: false
+    description: S seasonally adjusted, U not adjusted, see bls_pr_seasonal.
+  - name: base_year
+    source_aliases: [base_year]
+    silver_type: INT
+    nullable: true
+    description: Index base year (value 100 in this year); NULL for percent change series.
+  - name: footnote_codes
+    source_aliases: [footnote_codes]
+    silver_type: ARRAY<STRING>
+    nullable: false
+    description: Series-level footnote codes, empty when none.
+  - name: begin_year
+    source_aliases: [begin_year]
+    silver_type: INT
+    nullable: false
+    description: Year of the first published observation.
+  - name: begin_period
+    source_aliases: [begin_period]
+    silver_type: STRING
+    nullable: false
+    description: Period of the first published observation.
+  - name: end_year
+    source_aliases: [end_year]
+    silver_type: INT
+    nullable: false
+    description: Year of the last published observation.
+  - name: end_period
+    source_aliases: [end_period]
+    silver_type: STRING
+    nullable: false
+    description: Period of the last published observation.

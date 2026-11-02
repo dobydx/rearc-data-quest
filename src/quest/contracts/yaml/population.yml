@@ -1,0 +1,31 @@
+# DataUSA has no file name, so ingest lands the response under this logical name.
+role: population
+source: datausa
+file_pattern: '^acs_population_nation\.json$'
+landing_glob: acs_population_nation.json
+fmt: json
+bronze_table: datausa_population
+silver_table: datausa_population
+grain: One row per nation and year in the current DataUSA population response.
+key: [nation_id, year]
+columns:
+  - name: nation_id
+    source_aliases: [nation id]
+    silver_type: STRING
+    nullable: false
+    description: Census geography id; 01000US is the United States.
+  - name: nation_name
+    source_aliases: [nation]
+    silver_type: STRING
+    nullable: false
+    description: Nation name.
+  - name: year
+    source_aliases: [year]
+    silver_type: INT
+    nullable: false
+    description: ACS vintage year.
+  - name: population
+    source_aliases: [population]
+    silver_type: BIGINT
+    nullable: false
+    description: ACS 1-year total population estimate (table B01003).
