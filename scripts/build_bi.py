@@ -297,19 +297,13 @@ OPTIONS, VALUES = "explorer_series_options", "explorer_series_values"
 def _answers_page() -> list[Widget]:
     intro = (
         "## Quest answers\n"
-        "Q1: US population 2013 to 2018 (DataUSA, ACS 1-year). Q2: best year per BLS series, "
-        "Q01 to Q04 summed, Q05 never added. Q3: PRS30006032 Q01 with that year's population.\n"
+        "\n"
+        "Q1: US population 2013 to 2018 (DataUSA, ACS 1-year). \n"
+        "\n"
+        "Q2: best year per BLS series, Q01 to Q04 summed, Q05 never added. \n"
+        "\n"
+        "Q3: PRS30006032 Q01 with that year's population."
     )
-    q1_columns = [
-        ("year_from", "integer"),
-        ("year_to", "integer"),
-        ("n_years", "integer"),
-        ("population_mean", "float"),
-        ("population_stddev_samp", "float"),
-        ("population_stddev_pop", "float"),
-        ("population_min", "integer"),
-        ("population_max", "integer"),
-    ]
     q2_columns = [
         ("series_id", "string"),
         ("series_label", "string"),
@@ -321,21 +315,14 @@ def _answers_page() -> list[Widget]:
         ("tied_year_count", "integer"),
         ("has_quarterly_data", "boolean"),
     ]
-    q3_columns = [
-        ("year", "integer"),
-        ("value", "decimal"),
-        ("unit_of_measure", "string"),
-        ("population", "integer"),
-        ("has_population", "boolean"),
-    ]
     return [
-        _text("answers_intro", intro, _pos(0, 0, 6, 2)),
+        _text("answers_intro", intro, _pos(0, 0, 12, 2)),
         _counter(
             "q1_mean",
             Q1,
             "population_mean",
             "Q1 mean population",
-            _pos(0, 2, 2, 3),
+            _pos(0, 2, 4, 3),
             "Unrounded mean over 2013 to 2018",
         ),
         _counter(
@@ -343,7 +330,7 @@ def _answers_page() -> list[Widget]:
             Q1,
             "population_stddev_samp",
             "Q1 standard deviation (sample)",
-            _pos(2, 2, 2, 3),
+            _pos(4, 2, 4, 3),
             "stddev_samp, n - 1",
         ),
         _counter(
@@ -351,19 +338,18 @@ def _answers_page() -> list[Widget]:
             Q1,
             "n_years",
             "Q1 years with a value",
-            _pos(4, 2, 2, 3),
+            _pos(8, 2, 4, 3),
             "6 means the window is complete",
         ),
-        _table("q1_row", Q1, q1_columns, "Q1 exact values", _pos(0, 5, 6, 2)),
-        _column_filter("q2_sector", Q2, "sector_name", "Sector", _pos(0, 7, 2, 1)),
-        _column_filter("q2_unit", Q2, "unit_of_measure", "Unit of measure", _pos(2, 7, 2, 1)),
-        _column_filter("q2_partial", Q2, "is_partial_year", "Partial best year", _pos(4, 7, 2, 1)),
+        _column_filter("q2_sector", Q2, "sector_name", "Sector", _pos(0, 5, 4, 1)),
+        _column_filter("q2_unit", Q2, "unit_of_measure", "Unit of measure", _pos(4, 5, 4, 1)),
+        _column_filter("q2_partial", Q2, "is_partial_year", "Partial best year", _pos(8, 5, 4, 1)),
         _table(
             "q2_table",
             Q2,
             q2_columns,
             "Q2 best year per series",
-            _pos(0, 8, 6, 9),
+            _pos(0, 6, 12, 9),
             "A sum of % changes has no economic meaning; read it as the literal answer to the "
             "question. Annual-only series have no best year.",
         ),
@@ -375,7 +361,7 @@ def _answers_page() -> list[Widget]:
             ("year", "Year"),
             ("value", "Q01 value (% change)"),
             "Q3 PRS30006032 Q01 value by year",
-            _pos(0, 17, 6, 5),
+            _pos(0, 15, 12, 5),
         ),
         _line(
             "q3_population",
@@ -383,11 +369,10 @@ def _answers_page() -> list[Widget]:
             ("year", "Year"),
             ("population", "Population"),
             "Q3 US population by year",
-            _pos(0, 22, 6, 5),
+            _pos(0, 20, 12, 5),
             description="Same years as above. Gaps are years DataUSA has no value for, "
             "2020 among them.",
         ),
-        _table("q3_table", Q3, q3_columns, "Q3 rows", _pos(0, 27, 6, 6)),
     ]
 
 

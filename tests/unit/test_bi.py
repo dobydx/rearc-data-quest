@@ -44,6 +44,26 @@ def test_dashboard_has_the_three_pages(dashboard: dict[str, Any]) -> None:
     assert [p["displayName"] for p in dashboard["pages"]] == ["Answers", "Data quality", "Explorer"]
 
 
+def test_answers_page_is_full_width_and_keeps_the_q2_table(dashboard: dict[str, Any]) -> None:
+    (page,) = [p for p in dashboard["pages"] if p["name"] == "answers"]
+    layout = {
+        item["widget"]["name"]: tuple(item["position"].values()) for item in page["layout"]
+    }  # (x, y, width, height)
+
+    assert layout == {
+        "answers_intro": (0, 0, 12, 2),
+        "q1_mean": (0, 2, 4, 3),
+        "q1_stddev": (4, 2, 4, 3),
+        "q1_years": (8, 2, 4, 3),
+        "q2_sector": (0, 5, 4, 1),
+        "q2_unit": (4, 5, 4, 1),
+        "q2_partial": (8, 5, 4, 1),
+        "q2_table": (0, 6, 12, 9),
+        "q3_value": (0, 15, 12, 5),
+        "q3_population": (0, 20, 12, 5),
+    }
+
+
 def test_alert_query_is_the_sql_file_with_the_catalog_named() -> None:
     alert = yaml.safe_load(ALERT_YAML.read_text())["resources"]["alerts"]["quest_dq_alert"]
 
